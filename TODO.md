@@ -3,3 +3,33 @@
 # Copy, hash and show progress bar
 # Mark as Completed in db
 # (Optional) Async read back files 'verify' at destination
+
+
+
+
+# CLI structure
+
+scan
+    --clear-db
+import [TARGET_DIR]
+    --exclude-before
+    --exclude-after
+    --overwrite
+    --force-all
+reset-status
+
+* Database is stored in AppData
+
+
+# FUTURE FEATURES:
+verify
+import
+    --verify-only
+    --skip-verify
+    --videos-only
+    --images-only
+    --exclude "r/pattern/"
+reset-status
+    --exclude (all)
+
+* More than one iOS device - provide mechanism to select
