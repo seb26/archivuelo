@@ -5,10 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Module",
+            "name": "Python Debugger: Scan",
             "type": "debugpy",
             "request": "launch",
-            "module": "seb-import-media-from-ios"
+            "module": "import_media_ios.cli",
+            "args": [
+                "scan",
+            ]
+        },
+        {
+            "name": "Python Debugger: Import",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "import_media_ios.cli",
+            "args": [
+                "import",
+                "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp",
+                "--exclude-before",
+                "2024-10-30",
+            ]
         }
     ]
 }

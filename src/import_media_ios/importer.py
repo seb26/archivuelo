@@ -24,10 +24,10 @@ progress_bar_components = (
 )
 
 class Importer:
-    def __init__(self, import_dest):
+    def __init__(self):
         self.db = MediaDb()
         self.afc = None
-        self._connect()
+        self.connection = self._connect()
         logger.info(f"Files present in database: {MediaFile.select().count()}")
 
     def _connect(self):
@@ -35,12 +35,13 @@ class Importer:
             lockdown = create_using_usbmux()
         except NoDeviceConnectedError as e:
             logger.critical('No device connected. Double check connection and retry.')
-            return
+            return False
         self.afc = AfcService(lockdown)
         self.device_info = self.afc.lockdown.all_values
         d = self.device_info
         self.device_info_string = f"{d['DeviceClass']} \"{d['DeviceName']}\" (iOS {d['ProductVersion']})"
         logger.info(f"Connected to device: {self.device_info_string}")
+        return True
     
     def scan(self):
         # Walk ./DCIM
@@ -50,11 +51,13 @@ class Importer:
             # If status = imported, skip
         # If not present, add to db with 'unimported'
         def _walk(input_path):
-            if not self.afc:
-                logger.error('AFC connection not established yet, aborting')
-                return
-            with Progress(progress_bar_components) as progress:
-                total_files = progress.add_task('Media files', total=0)
+            with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TimeElapsedColumn(),
+                MofNCompleteColumn(), 
+            ) as progress:
+                total_files = progress.add_task('Scanning media files', total=0)
                 for root, dirs, files in self.afc.walk(input_path):
                     # Task for this folder
                     this_folder = progress.add_task(root, total=len(files))
@@ -96,19 +99,30 @@ class Importer:
                 # Not present in DB, add
                 self.db.add(**fdata, status_imported=False)
     
-    def import_pending_files(self, target_dir: str, exclude_before: datetime=False, exclude_after: datetime=False, overwrite=False):
+    def import_pending_files(
+            self,
+            target_dir: str,
+            exclude_before: datetime=False,
+            exclude_after: datetime=False,
+            force_all: bool=False,
+            overwrite: bool=False,
+        ):
         def _callback_pull(src, dest, hash):
             logger.debug(f'✅ successful copy: {src} to {dest}')
             progress.update(total, advance=1)
             return { 'src': src, 'dest': dest, 'xxh3_64': hash }
 
-        queue = self.db.get_mediafiles_pending(exclude_before=exclude_before, exclude_after=exclude_after)
+        queue = self.db.get_mediafiles_pending(
+            exclude_before=exclude_before,
+            exclude_after=exclude_after,
+            force_all=force_all,
+        )
         if exclude_before:
             logger.info(f'Import: Will exclude files before: {exclude_before}')
         if exclude_after:
             logger.info(f'Import: Will exclude files after: {exclude_after}')
         if len(queue) == 0:
-            logger.error('Import: 0 files applicable to import. If needed, re-scan the device.')
+            logger.error('Import: 0 files applicable to import. If needed, scan the device (again).')
         else:
             logger.info(f'Import: Files to import: {len(queue)}')
         count_files_copied = 0
@@ -116,7 +130,7 @@ class Importer:
         with Progress(*progress_bar_components) as progress:
             total = progress.add_task('Import', total=len(queue))
             for media_file in queue:
-                filepath_dst = target_dir / media_file.filepath_src
+                filepath_dst = Path(target_dir) / Path(media_file.filepath_src)
                 if filepath_dst.is_file() and not overwrite:
                     # Present on disk
                     logger.error(f"Import: {media_file.filepath_src}: already on disk")

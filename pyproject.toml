@@ -1,10 +1,14 @@
 [project]
-name = "seb-import-media-from-ios"
+name = "import-media-ios"
 version = "0.1"
 dependencies = [
+    "click",
+    "peewee",
+    "pymobiledevice3",
+    "rich",
+    "xxhash",
 ]
 requires-python = ">=3.12"
-authors = [
-]
-maintainers = [
-]
+
+[project.scripts]
+import-media-ios = "import_media_ios.cli:cli"

@@ -11,12 +11,12 @@
 
 scan
     --clear-db
+    --reset-import-status
 import [TARGET_DIR]
     --exclude-before
     --exclude-after
     --overwrite
     --force-all
-reset-status
 
 * Database is stored in AppData
 

@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+      "./lib/pymobiledevice3"
+    ],
+    "python.analysis.extraPaths": [
+      "./lib/pymobiledevice3"
+    ]
+  }
