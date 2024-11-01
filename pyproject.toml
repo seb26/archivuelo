@@ -1,0 +1,10 @@
+[project]
+name = "seb-import-media-from-ios"
+version = "0.1"
+dependencies = [
+]
+requires-python = ">=3.12"
+authors = [
+]
+maintainers = [
+]
