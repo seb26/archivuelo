@@ -2,6 +2,7 @@ from .importer import Importer
 from datetime import datetime
 import click
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,11 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 def cli(ctx):
     """CLI entrypoint"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(message)s',
+        datefmt='%H:%M:%S',
+    )
     ctx.obj = Importer()
     if not ctx.obj.connection:
         ctx.exit()
@@ -30,6 +36,7 @@ def scan(importer, ctx, clear_db, reset_import_status, **options):
         ctx.exit()
     if reset_import_status:
         importer.reset_imported_status()
+        ctx.exit()
     importer.scan(**options)
 
 @cli.command(name='import')
@@ -40,7 +47,7 @@ def scan(importer, ctx, clear_db, reset_import_status, **options):
 @click.option('--exclude-after', help="Exclude all files with creation time after this time (YYYY-MM-DD HH:MM:SS)")
 @click.option('--force-all', is_flag=True, default=False, help="Import all files, even if marked as imported previously")
 @click.option('--overwrite', is_flag=True, default=False, help="Overwrite existing files on disk")
-def import_(importer, ctx, target_dir, **options):
+async def import_(importer, ctx, target_dir, **options):
     # Pre-parse dates
     for option in [ 'exclude_before', 'exclude_after' ]:
         if options.get(option):

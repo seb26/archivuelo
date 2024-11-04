@@ -20,6 +20,12 @@ import [TARGET_DIR]
 
 * Database is stored in AppData
 
+# Implementation of multithreading/async
+
+* Copy process from USB device needs to be synchronous, single queue
+* Verification process can be multi threaded. At the very least, verification needs to take place DURING copies, even if verification is 1-at-a-time itself
+* CLI `import` command needs to wait until verification is complete before terminating
+
 
 # FUTURE FEATURES:
 verify
