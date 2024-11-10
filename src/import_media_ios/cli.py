@@ -1,17 +1,19 @@
 from .importer import Importer
 from datetime import datetime
+import asyncio
 import click
 import logging
-import asyncio
 
 logger = logging.getLogger(__name__)
 
 @click.group()
 @click.pass_context
-def cli(ctx):
+@click.option('-v', '--verbose', is_flag=True, default=False, help="enable debugging output")
+def cli(ctx, verbose: bool):
     """CLI entrypoint"""
+    logging_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging_level,
         format='%(asctime)s | %(message)s',
         datefmt='%H:%M:%S',
     )
@@ -47,7 +49,7 @@ def scan(importer, ctx, clear_db, reset_import_status, **options):
 @click.option('--exclude-after', help="Exclude all files with creation time after this time (YYYY-MM-DD HH:MM:SS)")
 @click.option('--force-all', is_flag=True, default=False, help="Import all files, even if marked as imported previously")
 @click.option('--overwrite', is_flag=True, default=False, help="Overwrite existing files on disk")
-async def import_(importer, ctx, target_dir, **options):
+def import_(importer, ctx, target_dir, **options):
     # Pre-parse dates
     for option in [ 'exclude_before', 'exclude_after' ]:
         if options.get(option):
@@ -58,7 +60,11 @@ async def import_(importer, ctx, target_dir, **options):
                 logger.error(f'Invalid format for option --{option}: \"{options[option]}\". Check and retry. Aborting.')
                 ctx.exit()
     # Do import
-    importer.import_pending_files(target_dir, **options)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(
+        importer.import_(target_dir, **options)
+    )
+    loop.close()
 
 def user_input_date(input: str) -> datetime:
     for format in [

@@ -9,22 +9,25 @@
 
 # CLI structure
 
-scan
-    --clear-db
-    --reset-import-status
 import [TARGET_DIR]
+    --no-scan
     --exclude-before
     --exclude-after
     --overwrite
     --force-all
+scan
+    --clear-db
+    --reset-import-status
 
 * Database is stored in AppData
+
+* Import runs a scan by default
 
 # Implementation of multithreading/async
 
 * Copy process from USB device needs to be synchronous, single queue
 * Verification process can be multi threaded. At the very least, verification needs to take place DURING copies, even if verification is 1-at-a-time itself
-* CLI `import` command needs to wait until verification is complete before terminating
+* CLI `import` command needs to wait for verification to complete before terminating
 
 
 # FUTURE FEATURES:

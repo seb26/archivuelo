@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python Debugger: Scan",
             "type": "debugpy",
             "request": "launch",
@@ -19,10 +26,15 @@
             "request": "launch",
             "module": "import_media_ios.cli",
             "args": [
+                "-v",
                 "import",
                 "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp",
                 "--exclude-before",
-                "2024-10-30",
+                "2024-10-15",
+                "--exclude-after",
+                "2024-10-20",
+                "--overwrite",
+                "--force-all",
             ]
         }
     ]

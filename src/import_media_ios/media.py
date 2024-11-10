@@ -27,6 +27,9 @@ class MediaDb:
             [ MediaFile ],
             safe=True,
         )
+
+    def get_num_files(self) -> int:
+        return MediaFile.select().count()
     
     def is_filepath_present(self, filepath) -> bool:
         return bool( MediaFile.get_or_none(filepath_src=filepath) )
