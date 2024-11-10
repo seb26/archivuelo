@@ -60,11 +60,9 @@ def import_(importer, ctx, target_dir, **options):
                 logger.error(f'Invalid format for option --{option}: \"{options[option]}\". Check and retry. Aborting.')
                 ctx.exit()
     # Do import
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(
+    asyncio.run(
         importer.import_(target_dir, **options)
     )
-    loop.close()
 
 def user_input_date(input: str) -> datetime:
     for format in [

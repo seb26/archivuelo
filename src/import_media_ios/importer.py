@@ -9,6 +9,7 @@ from rich.progress import Progress
 from functools import partial
 import asyncio
 import logging
+import humanize
 import os
 import posixpath
 import xxhash
@@ -17,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 logger = logging.getLogger(__name__)
 
 MEDIA_FILEPATH = './DCIM'
+VERIFICATION_CHUNK_SIZE = 8192
 
 progress_bar_components = (
     TextColumn("[progress.description]{task.description}"),
@@ -130,22 +132,23 @@ class Importer:
         # Establish queue
         self.queue_verify = asyncio.Queue()
         # Create ongoing verification task
-        verify_task = asyncio.ensure_future(self.verify_files(self.queue_verify))
-        # Perform copy
+        verify_task = asyncio.ensure_future(self.verify_files())
+        # Copy
         await self.copy_files(
             applicable_files,
             target_dir=target_dir,
             force_all=force_all,
             overwrite=overwrite,
         )
-        # Wait until verify has completed every verify task
+        # Wait until verify has completed all items
         await self.queue_verify.join()
-        # Then cancel once done
+        # Cancel tasks
         verify_task.cancel()
 
     async def copy_files(self, files_list, **options):
         count_files_copied = 0
         count_files_skipped = 0
+        sum_bytes_copied = 0
         with Progress(*progress_bar_components) as progress:
             total = progress.add_task('Import', total=len(files_list))
             for media_file in files_list:
@@ -156,8 +159,12 @@ class Importer:
                     count_files_skipped += 1
                 else:
                     # Not present, let's copy
-                    await self.copy_file(media_file, filepath_dst)
-            logger.info(f'Import: Complete. Files copied: {count_files_copied}; Files skipped: {count_files_skipped}')
+                    result = await self.copy_file(media_file, filepath_dst)
+                    if result:
+                        progress.update(total, advance=1)
+                        count_files_copied += 1
+                        sum_bytes_copied += media_file.size
+        logger.info(f'Import: Complete. Files copied: {count_files_copied} ({humanize.naturalsize(sum_bytes_copied)}); Files skipped: {count_files_skipped}')
 
     async def copy_file(self, media_file, filepath_dst):
         def _on_pull_complete(src, dest, hash):
@@ -185,23 +192,28 @@ class Importer:
             return False
         # Mark it for verify
         await self.queue_verify.put(media_file)
+        return True
 
-    async def verify_files(self, queue):
+    async def verify_files(self):
         while True:
+            logger.debug('verify_files() waiting...')
             media_file = await self.queue_verify.get()
-            self.verify_file(media_file)
-            queue.task_done()
+            logger.debug(f'Got verify item from queue: {media_file.id}, {media_file.filename}')
+            await self.verify_file(media_file)
+            self.queue_verify.task_done()
+            logger.debug(f'Verify queue size is now: {self.queue_verify.qsize()}')
 
-    def verify_file(self, media_file):
+    async def verify_file(self, media_file):
         if not Path(media_file.filepath_dst).is_file():
             logger.error(f'Verify: No file found at this path: {media_file.filepath_dst}')
             return False
+        logger.debug(f'Verifying {media_file.filepath_dst} | Source hash: {media_file.hashvalue}')
         with open(media_file.filepath_dst, 'rb') as fbytes:
-            logger.debug(f'Verifying {media_file.filepath_dst} | Source hash: {media_file.src_hash}')
             dst_hasher = xxhash.xxh3_64()
-            dst_hasher.update(fbytes)
+            while chunk := fbytes.read(VERIFICATION_CHUNK_SIZE):
+                dst_hasher.update(chunk)
             dst_hash = dst_hasher.hexdigest()
-            if media_file.src_hash == dst_hash:
+            if media_file.hashvalue == dst_hash:
                 logger.debug(f'Verified match')
                 return True
             else:
@@ -210,8 +222,6 @@ class Importer:
                 logger.error(f'Verify: Destination filesize (bytes): {media_file.filepath_dst}')
                 return False
             
-
-
     def reset_imported_status(self):
         rows = self.db.reset_imported()
         if rows:

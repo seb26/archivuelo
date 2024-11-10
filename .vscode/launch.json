@@ -26,13 +26,13 @@
             "request": "launch",
             "module": "import_media_ios.cli",
             "args": [
-                "-v",
+                // "-v",
                 "import",
                 "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp",
                 "--exclude-before",
                 "2024-10-15",
                 "--exclude-after",
-                "2024-10-20",
+                "2024-10-16",
                 "--overwrite",
                 "--force-all",
             ]
