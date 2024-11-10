@@ -1,9 +1,10 @@
 from .media import MediaDb, MediaFile
+from .afc import AfcService
 from datetime import datetime
 from pathlib import Path, PurePosixPath 
 from pymobiledevice3.exceptions import *
 from pymobiledevice3.lockdown import create_using_usbmux
-from pymobiledevice3.services.afc import AfcService, AfcException
+from pymobiledevice3.services.afc import AfcException
 from rich.progress import ( TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, SpinnerColumn )
 from rich.progress import Progress
 from functools import partial
