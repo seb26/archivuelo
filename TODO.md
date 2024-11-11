@@ -1,11 +1,17 @@
-# Read all media folders on device, respecting user's exclusions
-# Store in database and mark files as Queue for copy
-# Copy, hash and show progress bar
-# Mark as Completed in db
-# (Optional) Async read back files 'verify' at destination
+# rough initial plan
+
+* Read all media folders on device, respecting user's exclusions
+* Store in database and mark files as Queue for copy
+* Copy, hash and show progress bar
+* Mark as Completed in db
+* (Optional) Async read back files 'verify' at destination
 
 
+# improvements
 
+* Change the project's name to something easier
+* Fix CLI entrypoint so that it is as simple as `projectname import` and `projectname scan` instead of cli suffix
+* Make `import` run a scan if one is not present
 
 # CLI structure
 

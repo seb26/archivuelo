@@ -45,8 +45,8 @@ def scan(importer, ctx, clear_db, reset_import_status, **options):
 @click.pass_context
 @click.pass_obj
 @click.argument('target_dir')
-@click.option('--exclude-before', help="Exclude all files with creation time before this time (YYYY-MM-DD HH:MM:SS)")
-@click.option('--exclude-after', help="Exclude all files with creation time after this time (YYYY-MM-DD HH:MM:SS)")
+@click.option('--exclude-before', help="Exclude all files with creation time before this date (YYYY-MM-DD) or time (YYYY-MM-DD HH:MM:SS)")
+@click.option('--exclude-after', help="Exclude all files with creation time after this date (YYYY-MM-DD) or time (YYYY-MM-DD HH:MM:SS)")
 @click.option('--force-all', is_flag=True, default=False, help="Import all files, even if marked as imported previously")
 @click.option('--overwrite', is_flag=True, default=False, help="Overwrite existing files on disk")
 def import_(importer, ctx, target_dir, **options):
