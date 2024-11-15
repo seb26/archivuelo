@@ -13,6 +13,10 @@
 * Fix CLI entrypoint so that it is as simple as `projectname import` and `projectname scan` instead of cli suffix
 * Make `import` run a scan if one is not present
 
+# BUGS IN MAIN
+* some PNGs have copied only half! aka top visual half is good image content and bottom visual half is white or black with no data (depending on png viewing app). however dest file hash matches! investigate
+    * this is most likely not this app! pymobiledevice3 or iOS...
+
 # CLI structure
 
 import [TARGET_DIR]
