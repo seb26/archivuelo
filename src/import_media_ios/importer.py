@@ -192,24 +192,24 @@ class Importer:
             logger.exception('Exception', exc_info=e)
             return False
         # Mark it for verify
-        await self.queue_verify.put(media_file)
+        await self.queue_verify.put( (media_file, filepath_dst) )
         return True
 
     async def verify_files(self):
         while True:
             logger.debug('verify_files() waiting...')
-            media_file = await self.queue_verify.get()
+            media_file, filepath_dst = await self.queue_verify.get()
             logger.debug(f'Got verify item from queue: {media_file.id}, {media_file.filename}')
-            await self.verify_file(media_file)
+            await self.verify_file(media_file, filepath_dst)
             self.queue_verify.task_done()
             logger.debug(f'Verify queue size is now: {self.queue_verify.qsize()}')
 
-    async def verify_file(self, media_file):
-        if not Path(media_file.filepath_dst).is_file():
-            logger.error(f'Verify: No file found at this path: {media_file.filepath_dst}')
+    async def verify_file(self, media_file, filepath_dst):
+        if not Path(filepath_dst).is_file():
+            logger.error(f'Verify: No file found at this path: {filepath_dst}')
             return False
-        logger.debug(f'Verifying {media_file.filepath_dst} | Source hash: {media_file.hashvalue}')
-        with open(media_file.filepath_dst, 'rb') as fbytes:
+        logger.debug(f'Verifying {filepath_dst} | Source hash: {media_file.hashvalue}')
+        with open(filepath_dst, 'rb') as fbytes:
             dst_hasher = xxhash.xxh3_64()
             while chunk := fbytes.read(VERIFICATION_CHUNK_SIZE):
                 dst_hasher.update(chunk)
@@ -218,9 +218,9 @@ class Importer:
                 logger.debug(f'Verified match')
                 return True
             else:
-                logger.error(f'Verify: Hash mismatch for file {media_file.filepath_dst} - Source: {media_file.src_hash} - Destination: {dst_hash}')
-                filesize_dst = Path(media_file.filepath_dst).stat().st_size
-                logger.error(f'Verify: Destination filesize (bytes): {media_file.filepath_dst}')
+                logger.error(f'Verify: Hash mismatch for file {filepath_dst} - Source: {media_file.src_hash} - Destination: {dst_hash}')
+                filesize_dst = Path(filepath_dst).stat().st_size
+                logger.error(f'Verify: Destination filesize (bytes): {filepath_dst}')
                 return False
             
     def reset_imported_status(self):
