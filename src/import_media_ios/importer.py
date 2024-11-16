@@ -1,17 +1,16 @@
 from .cache import Cache
 from .device import Device
+from .services import CopyService, VerifyService
 from datetime import datetime
-from pathlib import Path
+from functools import partial
+from tqdm.asyncio import tqdm
 import asyncio
 import logging
-import humanize
 import os
-import xxhash
 
 logger = logging.getLogger(__name__)
 
 MEDIA_FILEPATH = './DCIM'
-VERIFICATION_CHUNK_SIZE = 8192
 
 
 class Importer:
@@ -19,21 +18,27 @@ class Importer:
         self.cache = Cache()
         self.copy_service = CopyService(self.cache)
         self.verify_service = VerifyService(self.cache)
+        # Connect their queues
+        self.copy_service.verify_queue = self.verify_service.queue
+        self.verify_service.copy_queue = self.copy_service.queue
 
-    async def import_(self, device: Device, exclude_before: datetime=None, exclude_after: datetime=None):
-
-        def _on_scan(**data):
-            pass
-
+    def scan(self, device: Device):
         # As we identify files, check if they are tracked
         # And then queue them for copy, and apply any specified conditions
-        async for filepath in device.get_media_files(
-            MEDIA_FILEPATH,
-            self.cache,
+        logger.debug(f"Starting")
+        count_scanned_files = 0 # Temporary
+        count_tracked_files = 0
+        count_untracked_files = 0
+        for filepath in tqdm(
+            device.get_media_files(MEDIA_FILEPATH),
+            desc="Scanning",
+            unit=" file",
         ):
+            count_scanned_files += 1
             media_file = self.cache.get_file_from_filepath(filepath)
             if media_file:
-                # Already cached
+                count_tracked_files += 1
+                # Already cached - progress callback to display "found # tracked files"
                 pass
             else:
                 # Not yet cached, establish some basics about it
@@ -45,77 +50,45 @@ class Importer:
                     time_birthtime=stat.st_birthtime,
                     time_mtime=stat.st_mtime,
                 )
-            # Add to copy queue
+                count_untracked_files += 1
+            yield media_file
+        logger.debug(f"Scanned {count_scanned_files} files: {count_tracked_files} tracked, {count_untracked_files} untracked")
+        
+
+    async def import_(
+        self,
+        device: Device,
+        target_directory: str,
+        use_cache: bool=False,
+        exclude_before: datetime=None,
+        exclude_after: datetime=None,
+        overwrite: bool=False,
+        force_all: bool=False,
+    ):
+        logger.debug(f"Target directory: {target_directory}")
+        if use_cache:
+            logger.debug(f"Getting tracked unimported files from cache...")
+            files = self.cache.get_files_pending
+        else:
+            logger.debug(f"Will perform device filesystem scan...")
+            files = partial(self.scan, device)
+        for media_file in files():
+            logger.debug(f"working on: {media_file.filepath_src}")
             if exclude_before:
                 pass #logic
-            await self.copy_service.queue.put(media_file)
-
-class CopyService:
-    def __init__(self, cache):
-        self.cache = cache
-        self.queue = asyncio.Queue()
-
-    async def process_queue(self, verify_queue, verify_files_after: bool=True):
-        while not self.queue.empty():
-            media_file = await self.queue.get()
-            result, src_hash = await self.pull_file_from_device(
-                media_file.filepath_src,
-                media_file.filepath_dst,
-            )
-            # Issue with copy
-            if not result:
-                pass
-            # Add to verify queue
-            if verify_queue and verify_files_after:
-                # Refresh our cache row
-                media_file = self.cache.get_file_from_id(media_file.id)
-                await verify_queue.put(media_file, src_hash)
-            # Update the tracked file
-            self.queue.task_done()
-
-    async def pull_file_from_device(self, device, filepath_src, filepath_dst, progress_callback=None):
-        """Perform the pull"""
-        src_hash = None
-        def _on_pull_complete(src, dest, hash=src_hash):
-            # Update db
-            self.cache.upsert(
-                filepath_src=src,
-                filepath_dst=dest,
-                hashvalue=hash,
-                status_imported=True,
-                time_imported=datetime.now(),
-            )
-        result = device.pull_file(filepath_src, filepath_dst, _on_pull_complete)
-        return result, src_hash
-
-
-class VerifyService:
-    def __init__(self, cache):
-        self.cache = cache
-        self.queue = asyncio.Queue()
-
-    async def process_queue(self, copy_queue):
-        while not copy_queue.empty() and not self.queue.empty():
-            media_file, src_hash = await self.queue.get()
-            file_is_verified = await self.verify_file_on_disk(media_file, src_hash)
-            self.queue.task_done()
-    
-    async def verify_file_on_disk(self, media_file, src_hash) -> bool:
-        """Check file on disk against src hash, src filesize"""
-        if not Path(media_file.filepath_dst).is_file():
-            logger.error(f'Verify: No file found at this path: {media_file.filepath_dst}')
-            return False
-        logger.debug(f'Verifying {media_file.filepath_dst} | Source hash: {src_hash}')
-        with open(media_file.filepath_dst, 'rb') as fbytes:
-            dst_hasher = xxhash.xxh3_64()
-            while chunk := fbytes.read(VERIFICATION_CHUNK_SIZE):
-                dst_hasher.update(chunk)
-            dst_hash = dst_hasher.hexdigest()
-            if src_hash == dst_hash:
-                logger.debug(f'Verified match')
-                return True
-            else:
-                logger.error(f'Verify: Hash mismatch for file {media_file.filepath_dst} - Source: {media_file.src_hash} - Destination: {dst_hash}')
-                filesize_dst = Path(media_file.filepath_dst).stat().st_size
-                logger.error(f'Verify: Destination filesize (bytes): {media_file.filepath_dst}')
-                return False
+            # Add to the copy queue
+            await self.copy_service.queue.put( (device, media_file, target_directory) )
+            logger.debug("Added to copy queue")
+        logger.debug("Iterating over results of scan: Done.")
+        logger.debug("Adding tasks to Gather...")
+        # Create ongoing tasks
+        tasks = await asyncio.gather(
+            self.copy_service.process_queue(),
+            self.verify_service.process_queue(),
+        )
+        logger.debug("Added tasks to Gather.")
+        # Watch for queue items
+        logger.debug("Awaiting queue items...")
+        await self.copy_service.queue.join()
+        await self.verify_service.queue.join()
+        logger.debug("Awaiting queue items: Started.")

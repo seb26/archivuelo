@@ -1,4 +1,3 @@
-from .afc import AfcService
 from pymobiledevice3.exceptions import *
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.services.afc import MAXIMUM_READ_SIZE, AfcService
@@ -52,7 +51,7 @@ class AfcService(AfcService):
                         self.fclose(handle)
                 os.utime(dst, (os.stat(dst).st_atime, self.stat(src)['st_mtime'].timestamp()))
                 if callback is not None:
-                    callback(src, dst, hash.hexdigest())
+                    callback(src, dst, { 'type': 'xxh3_64', 'value': hash.hexdigest() })
             else:
                 # directory
                 dst_path = pathlib.Path(dst) / os.path.basename(relative_src)
@@ -92,13 +91,19 @@ class Device:
         logger.info(f"Connected to device: {self.device_info_string}")
         return True
 
-    async def get_media_files(self, input_path):
+    def get_media_files(self, input_path):
         for root, dirs, files in self.afc.walk(input_path):
             for filepath in sorted(files):
                 yield posixpath.join(root, filepath)
     
     def pull_file(self, filepath_src, filepath_dst, callback):
-        return self.afc.pull(filepath_src, filepath_dst, callback=callback)
+        try:
+            logger.debug(f"Pulling file FROM path {filepath_src} TO path {filepath_dst}")
+            self.afc.pull(filepath_src, filepath_dst, callback=callback)
+            return True
+        except AfcException as e:
+            logger.error(f'Error while pulling file FROM path {filepath_src} TO path {filepath_dst}', exc_info=e)
+            return False
 
     def stat(self, filepath, **options):
         return self.afc.os_stat(filepath, **options)

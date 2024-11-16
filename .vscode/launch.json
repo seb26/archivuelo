@@ -17,7 +17,9 @@
             "request": "launch",
             "module": "import_media_ios.cli",
             "args": [
+                "--verbose",
                 "scan",
+                // "--clear-db",
             ]
         },
         {
@@ -26,9 +28,10 @@
             "request": "launch",
             "module": "import_media_ios.cli",
             "args": [
-                // "-v",
+                "--verbose",
                 "import",
-                "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp",
+                "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp_2",
+                "--use-cache",
                 "--exclude-before",
                 "2024-10-15",
                 "--exclude-after",
