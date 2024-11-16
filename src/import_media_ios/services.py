@@ -49,9 +49,13 @@ class CopyService:
             media_file.time_imported = datetime.now()
             media_file.save()
 
+        filepath_parent = Path(media_file.filepath_src).parent
+        dirpath_dst = Path(target_directory) / filepath_parent
+        # Ensure exists
+        dirpath_dst.mkdir(parents=True, exist_ok=True)
         result = device.pull_file(
             media_file.filepath_src,
-            target_directory,
+            dirpath_dst,
             partial(_on_pull_complete, media_file),
         )
         return (result, media_file)
