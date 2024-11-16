@@ -29,11 +29,15 @@ class Cache:
         self.db.connect(reuse_if_open=True)
         self.db.create_tables(tables, safe=True)
 
-    def get_files_pending(self):
-        """Look up files scanned but not yet imported"""
+    def get_files_pending(self, force_all: bool=False):
+        """
+        Look up files scanned but not yet imported
+        """
+        # Get all files if force_all is defined
+        condition = ( TrackedMediaFile.status_imported == False ) if not force_all else ( None )
         query = ( TrackedMediaFile
             .select(TrackedMediaFile)
-            .where(TrackedMediaFile.status_imported == False)
+            .where(condition)
         )
         if query:
             return list(query)
