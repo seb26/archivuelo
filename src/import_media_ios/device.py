@@ -1,10 +1,17 @@
+from .afc import AfcService
+from pymobiledevice3.exceptions import *
+from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.services.afc import MAXIMUM_READ_SIZE, AfcService
+import logging
+import os
+import posixpath
+import xxhash
 from typing import Callable, Optional
 from re import Pattern
 import pathlib
-import posixpath
-import xxhash
-import os
+
+logger = logging.getLogger(__name__)
+
 
 class AfcService(AfcService):
     def __init__(self, *args, **kwargs):
@@ -66,3 +73,32 @@ class AfcService(AfcService):
                         continue
 
                     self.pull(src_filename, str(dst_path), callback=callback)
+
+
+class Device:
+    def __init__(self):
+        self._connect()
+
+    def _connect(self):
+        try:
+            lockdown = create_using_usbmux()
+        except NoDeviceConnectedError as e:
+            logger.critical('No device connected. Double check connection and retry.')
+            return False
+        self.afc = AfcService(lockdown)
+        self.device_info = self.afc.lockdown.all_values
+        d = self.device_info
+        self.device_info_string = f"{d['DeviceClass']} \"{d['DeviceName']}\" (iOS {d['ProductVersion']})"
+        logger.info(f"Connected to device: {self.device_info_string}")
+        return True
+
+    async def get_media_files(self, input_path):
+        for root, dirs, files in self.afc.walk(input_path):
+            for filepath in sorted(files):
+                yield posixpath.join(root, filepath)
+    
+    def pull_file(self, filepath_src, filepath_dst, callback):
+        return self.afc.pull(filepath_src, filepath_dst, callback=callback)
+
+    def stat(self, filepath, **options):
+        return self.afc.os_stat(filepath, **options)
