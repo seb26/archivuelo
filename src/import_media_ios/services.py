@@ -21,21 +21,19 @@ class CopyService:
     async def process_queue(self, verify_files_after: bool=True):
         while not self.queue.empty():
             device, media_file, target_directory = await self.queue.get()
-            result, media_file = await self.copy_file_from_device(device, media_file, target_directory)
+            result, media_file = self.copy_file_from_device(device, media_file, target_directory)
             # Issue with copy
             if not result:
                 logger.error(f"Pull file unsucessful: {media_file.filepath_src}")
-                raise Exception()
                 self.queue.task_done()
             # Add to verify queue
             if verify_files_after and self.verify_queue:
-                # Refresh our cache row
-                # media_file = self.cache.get_file_from_id(media_file.id)
+                logger.debug(f"Added file to verify queue: {media_file.filepath_src}")
                 await self.verify_queue.put(media_file)
             # Update the tracked file
             self.queue.task_done()
 
-    async def copy_file_from_device(self, device: Device, media_file, target_directory: str, progress_callback=None):
+    def copy_file_from_device(self, device: Device, media_file, target_directory: str, progress_callback=None):
         """
         Perform the pull and update db afterwards
         """
@@ -66,19 +64,21 @@ class VerifyService:
         self.copy_queue: asyncio.Queue = None
 
     async def process_queue(self):
-        while not self.copy_queue.empty() and not self.queue.empty():
+        logger.debug("Starting...")
+        while not self.copy_queue.empty() or not self.queue.empty():
             media_file = await self.queue.get()
-            file_is_verified = await self.verify_file_on_disk(media_file)
+            file_is_verified = self.verify_file_on_disk(media_file)
             self.queue.task_done()
+        logger.debug("End")
     
-    async def verify_file_on_disk(self, media_file) -> bool:
+    def verify_file_on_disk(self, media_file) -> bool:
         """
         Check file on disk against src hash, src filesize
         """
-        if not media_file.get('hash_value'):
+        if not media_file.hash_value:
             logger.error(f'Verify: No hash value found for this media file: {media_file.filepath_src}')
             return False
-        if not media_file.get('hash_type') == 'xxh3_64':
+        if not media_file.hash_type == 'xxh3_64':
             logger.error(f"Verify: Unrecognised hash type ({media_file.get('hash_type')}) for this media file, can't verify: {media_file.filepath_src}")
             return False
         if not Path(media_file.filepath_dst).is_file():
@@ -90,11 +90,11 @@ class VerifyService:
             while chunk := fbytes.read(VERIFICATION_CHUNK_SIZE):
                 dst_hasher.update(chunk)
             dst_hash = dst_hasher.hexdigest()
-            if media_file.hashvalue == dst_hash:
+            if media_file.hash_value == dst_hash:
                 logger.debug(f'Verified match')
                 return True
             else:
-                logger.error(f'Verify: Hash mismatch for file {media_file.filepath_dst} - Source: {media_file.hashvalue} - Destination: {dst_hash}')
+                logger.error(f'Verify: Hash mismatch for file {media_file.filepath_dst} - Source: {media_file.hash_value} - Destination: {dst_hash}')
                 filesize_dst = Path(media_file.filepath_dst).stat().st_size
                 logger.error(f'Verify: Destination filesize (bytes): {media_file.filepath_dst}')
                 return False
