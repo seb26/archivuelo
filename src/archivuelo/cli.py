@@ -7,7 +7,8 @@ import asyncio
 import click
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('archivuelo')
+
 
 @click.group()
 @click.option('-v', '--verbose', is_flag=True, default=False, help="enable debugging output")
@@ -15,13 +16,20 @@ def archivuelo(verbose: bool):
     """
     Scans iOS device for media files (photos, videos, metadata sidecar files) and imports them into a directory of choice.
     """
-    logging_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=logging_level,
-        format='%(asctime)s | %(module)s.%(funcName)s[%(lineno)d] | %(message)s',
-        datefmt='%H:%M:%S',
-    )
 
+    # Establish logging
+    if verbose:
+        user_level = logging.DEBUG
+        fmt = "%(asctime)s | %(module)s.%(funcName)s[%(lineno)d] | %(message)s"
+    else:
+        user_level = logging.INFO
+        fmt = "%(asctime)s | %(message)s"
+    logger.setLevel(user_level)
+    handler_stdout = logging.StreamHandler()
+    handler_stdout.setLevel(user_level)
+    handler_stdout.setFormatter(CustomFormatter(fmt=fmt))
+    logger.addHandler(handler_stdout)
+    
 @archivuelo.command()
 @click.pass_context
 @click.option('--clear-db', is_flag=True, default=False, help="Clear the database and quit")
@@ -88,3 +96,31 @@ def user_input_date(input: str) -> datetime:
         except ValueError:
             continue
     raise ValueError(f"Could not parse '{input}' into a date & time object.")
+
+
+class CustomFormatter(logging.Formatter):
+    """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
+
+    grey = '\x1b[38;21m'
+    blue = '\x1b[38;5;39m'
+    yellow = '\x1b[38;5;226m'
+    red = '\x1b[38;5;196m'
+    reset = '\x1b[0m'
+
+    def __init__(self, fmt):
+        super().__init__()
+        self.fmt = fmt
+        self.datefmt = "%H:%M:%S"
+        self.FORMATS = {
+            logging.DEBUG: self.grey + self.fmt + self.reset,
+            logging.INFO: self.blue + self.fmt + self.reset,
+            logging.WARNING: self.yellow + self.fmt + self.reset,
+            logging.ERROR: self.red + self.fmt + self.reset,
+            logging.CRITICAL: self.red + self.fmt + self.reset
+        }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        formatter.datefmt = self.datefmt
+        return formatter.format(record)
