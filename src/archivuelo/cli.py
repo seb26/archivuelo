@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 @click.option('-v', '--verbose', is_flag=True, default=False, help="enable debugging output")
-def cli(verbose: bool):
-    """CLI entrypoint"""
+def archivuelo(verbose: bool):
+    """
+    Scans iOS device for media files (photos, videos, metadata sidecar files) and imports them into a directory of choice.
+    """
     logging_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=logging_level,
@@ -19,7 +21,7 @@ def cli(verbose: bool):
         datefmt='%H:%M:%S',
     )
 
-@cli.command()
+@archivuelo.command()
 @click.pass_context
 @click.option('--clear-db', is_flag=True, default=False, help="Clear the database and quit")
 @click.option('--reset-import-status', is_flag=True, default=False, help="Force mark all files in the database to 'unimported'")
@@ -44,7 +46,7 @@ def scan( ctx, clear_db, reset_import_status, **options):
     for f in importer.scan(device, **options):
         pass
 
-@cli.command(name='import')
+@archivuelo.command(name='import')
 @click.pass_context
 @click.argument('target_dir')
 @click.option('--exclude-after', help="Exclude all files with creation time after this date (YYYY-MM-DD) or time (YYYY-MM-DD HH:MM:SS)")
@@ -81,6 +83,3 @@ def user_input_date(input: str) -> datetime:
         except ValueError:
             continue
     raise ValueError(f"Could not parse '{input}' into a date & time object.")
-
-if __name__ == "__main__":
-    cli()
