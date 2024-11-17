@@ -1,3 +1,5 @@
+# archivuelo
+
 Scans iOS device for media files (photos, videos, metadata sidecar files) and imports them into a directory of choice.
 
 Keeps track of files that have already been imported, and can filter which files to import based on date & time.
@@ -11,10 +13,7 @@ Uses [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) to interface
 * Clone the repo.
 * Create and & activate a venv: `python -m venv .venv; activate`
 * Install requirements: `pip install .`
-* Run: `archivuelo import "/media/destination`
-
-## Tested on
-Tested using Windows 11, Python 3.12 and an iOS 18.0 device (iPhone 16 Pro). The connections are USB-based, not wireless.
+* See usage.
 
 ## Usage
 
@@ -76,6 +75,9 @@ Options:
   --reset-import-status  Force mark all files in the database to 'unimported'
   --help                 Show this message and exit.
 ```
+
+## Tested on
+Tested using Windows 11, Python 3.12 and an iPhone 16 Pro, with iOS 18.0 and 18.1. The connections are USB-based, not wireless.
 
 ## Development
 
