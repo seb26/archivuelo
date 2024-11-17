@@ -42,20 +42,17 @@ def scan( ctx, clear_db, reset_import_status, **options):
             click.echo("Clearing database...")
             cache.reset_cache()
             click.echo("Clearing database: Done.")
+            ctx.exit(0)
         else:
             click.echo("Aborted, no changes made.")
-        ctx.exit()
+            ctx.exit(127)
         return
     if reset_import_status:
         cache.reset_imported_status_on_all_files()
-        ctx.exit()
+        ctx.exit(0)
         return
-    try:
-        device: Device = Device()
-    except PyMobileDevice3Exception:
-        logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
-        ctx.exit()
-    importer: Importer = Importer()
+    device = get_device(ctx)
+    importer = Importer()
     for f in importer.scan(device, **options):
         pass
 
@@ -76,14 +73,26 @@ def import_(ctx, target_dir, **options):
                 continue
             except ValueError:
                 logger.error(f'Invalid format for option --{option}: \"{options[option]}\". Check and retry. Aborting.')
-                ctx.exit()
+                ctx.exit(1)
     # Establish
-    device: Device = Device()
-    importer: Importer = Importer()
+    device = get_device(ctx)
+    importer = Importer()
     # Import
     asyncio.run(
         importer.import_(device, target_dir, **options)
     )
+
+
+def get_device(ctx: click.Context) -> Device:
+    """
+    param ctx: provide Click context to allow this function to quit Click on exceptions
+    """
+    try:
+        device: Device = Device()
+        return device
+    except PyMobileDevice3Exception:
+        logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
+        ctx.exit(2)
 
 def user_input_date(input: str) -> datetime:
     for format in [
