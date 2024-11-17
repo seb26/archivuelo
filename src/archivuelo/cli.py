@@ -1,6 +1,7 @@
 from .cache import Cache
 from .device import Device
 from .importer import Importer
+from pymobiledevice3.exceptions import PyMobileDevice3Exception
 from datetime import datetime
 import asyncio
 import click
@@ -41,7 +42,11 @@ def scan( ctx, clear_db, reset_import_status, **options):
         cache.reset_imported_status_on_all_files()
         ctx.exit()
         return
-    device: Device = Device()
+    try:
+        device: Device = Device()
+    except PyMobileDevice3Exception:
+        logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
+        ctx.exit()
     importer: Importer = Importer()
     for f in importer.scan(device, **options):
         pass
