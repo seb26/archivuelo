@@ -1,6 +1,7 @@
 from .cache import Cache
 from .device import Device
 from .services import CopyService, VerifyService
+from .utils import ProgressBar
 from datetime import datetime
 from functools import partial
 from tqdm.asyncio import tqdm
@@ -65,38 +66,38 @@ class Importer:
         overwrite: bool=False,
         force_all: bool=False,
     ):
-        logger.debug(f"Target directory: {target_directory}")
+        logger.info(f"Will import to directory: {target_directory}")
         if use_cache:
             logger.debug(f"Getting tracked unimported files from cache...")
             files = partial(self.cache.get_files_pending, force_all)
         else:
             logger.debug(f"Will perform device filesystem scan...")
             files = partial(self.scan, device)
-        for media_file in files():
-            # logger.debug(f"working on: {media_file.filepath_src}")
-            # Filters
-            if exclude_before:
-                if media_file.time_birthtime <= exclude_before:
-                    # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
-                    continue
-            if exclude_after:
-                if media_file.time_birthtime >= exclude_after:
-                    # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
-                    continue
-            # Add to the copy queue
-            await self.copy_service.queue.put( (device, media_file, target_directory) )
-            logger.debug("Added to copy queue")
+        with tqdm(desc="Will import", unit=" file") as progress:
+            for media_file in files():
+                # Filters
+                if exclude_before:
+                    if media_file.time_birthtime <= exclude_before:
+                        # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
+                        continue
+                if exclude_after:
+                    if media_file.time_birthtime >= exclude_after:
+                        # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
+                        continue
+                # Add to the copy queue
+                await self.copy_service.queue.put( (device, media_file, target_directory) )
+                logger.debug("Added to copy queue")
+                progress.update()
         logger.debug(f"Queue counts | Copy: {self.copy_service.queue.qsize()} | Verify: {self.verify_service.queue.qsize()}")
-        logger.debug("Adding tasks to Gather...")
+        pbar_copy = ProgressBar(name='Copying', unit=' file', total=self.copy_service.queue.qsize())
+        pbar_verify = ProgressBar(name='Verifying', unit=' file')
         # Create ongoing tasks
         await asyncio.gather(
-            self.copy_service.process_queue(),
-            self.verify_service.process_queue(),
+            self.copy_service.process_queue(pbar_copy.update),
+            self.verify_service.process_queue(pbar_verify.update),
         )
-        logger.debug("Added tasks to Gather.")
-        logger.debug(f"Queue counts | Copy: {self.copy_service.queue.qsize()} | Verify: {self.verify_service.queue.qsize()}")
+        # Update Verify total based on qsize
+        pbar_verify.total = self.verify_service.queue.qsize()
         # Watch for queue items
-        logger.debug("Awaiting queue items...")
         await self.copy_service.queue.join()
         await self.verify_service.queue.join()
-        logger.debug(f"Queue counts | Copy: {self.copy_service.queue.qsize()} | Verify: {self.verify_service.queue.qsize()}")

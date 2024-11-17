@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import partial
 import asyncio
 import logging
+from tqdm.asyncio import tqdm
 import xxhash
 
 logger = logging.getLogger(__name__)
@@ -18,14 +19,16 @@ class CopyService:
         self.queue = asyncio.Queue()
         self.verify_queue: asyncio.Queue = None
 
-    async def process_queue(self, verify_files_after: bool=True):
+    async def process_queue(self, progress_callback, verify_files_after: bool=True):
         while not self.queue.empty():
             device, media_file, target_directory = await self.queue.get()
+            progress_callback(0, media_file.filepath_src)
             result, media_file = self.copy_file_from_device(device, media_file, target_directory)
             # Issue with copy
             if not result:
                 logger.error(f"Pull file unsucessful: {media_file.filepath_src}")
                 self.queue.task_done()
+            progress_callback(1)
             # Add to verify queue
             if verify_files_after and self.verify_queue:
                 logger.debug(f"Added file to verify queue: {media_file.filepath_src}")
@@ -67,12 +70,14 @@ class VerifyService:
         self.queue = asyncio.Queue()
         self.copy_queue: asyncio.Queue = None
 
-    async def process_queue(self):
+    async def process_queue(self, progress_callback):
         logger.debug("Starting...")
         while not self.copy_queue.empty() or not self.queue.empty():
             media_file = await self.queue.get()
+            progress_callback(0, media_file.filepath_dst)
             file_is_verified = self.verify_file_on_disk(media_file)
             self.queue.task_done()
+            progress_callback(1)
         logger.debug("End")
     
     def verify_file_on_disk(self, media_file) -> bool:

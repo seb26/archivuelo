@@ -3,11 +3,65 @@ from .device import Device
 from .importer import Importer
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
 from datetime import datetime
+from tqdm.asyncio import tqdm
 import asyncio
 import click
 import logging
 
 logger = logging.getLogger('archivuelo')
+
+
+class CustomFormatter(logging.Formatter):
+    """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
+
+    grey = '\x1b[38;21m'
+    blue = '\x1b[38;5;39m'
+    yellow = '\x1b[38;5;226m'
+    red = '\x1b[38;5;196m'
+    reset = '\x1b[0m'
+
+    def __init__(self, fmt):
+        super().__init__()
+        self.fmt = fmt
+        self.datefmt = "%H:%M:%S"
+        self.FORMATS = {
+            logging.DEBUG: self.grey + self.fmt + self.reset,
+            logging.INFO: self.blue + self.fmt + self.reset,
+            logging.WARNING: self.yellow + self.fmt + self.reset,
+            logging.ERROR: self.red + self.fmt + self.reset,
+            logging.CRITICAL: self.red + self.fmt + self.reset
+        }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        formatter.datefmt = self.datefmt
+        return formatter.format(record)
+
+
+def get_device(ctx: click.Context) -> Device:
+    """
+    param ctx: provide Click context to allow this function to quit Click on exceptions
+    """
+    try:
+        device: Device = Device()
+        return device
+    except PyMobileDevice3Exception:
+        logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
+        ctx.exit(2)
+
+
+def user_input_date(input: str) -> datetime:
+    for format in [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    ]:
+        try:
+            return datetime.strptime(input, format)
+        except ValueError:
+            continue
+    raise ValueError(f"Could not parse '{input}' into a date & time object.")
 
 
 @click.group()
@@ -81,55 +135,3 @@ def import_(ctx, target_dir, **options):
     asyncio.run(
         importer.import_(device, target_dir, **options)
     )
-
-
-def get_device(ctx: click.Context) -> Device:
-    """
-    param ctx: provide Click context to allow this function to quit Click on exceptions
-    """
-    try:
-        device: Device = Device()
-        return device
-    except PyMobileDevice3Exception:
-        logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
-        ctx.exit(2)
-
-def user_input_date(input: str) -> datetime:
-    for format in [
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-    ]:
-        try:
-            return datetime.strptime(input, format)
-        except ValueError:
-            continue
-    raise ValueError(f"Could not parse '{input}' into a date & time object.")
-
-
-class CustomFormatter(logging.Formatter):
-    """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
-
-    grey = '\x1b[38;21m'
-    blue = '\x1b[38;5;39m'
-    yellow = '\x1b[38;5;226m'
-    red = '\x1b[38;5;196m'
-    reset = '\x1b[0m'
-
-    def __init__(self, fmt):
-        super().__init__()
-        self.fmt = fmt
-        self.datefmt = "%H:%M:%S"
-        self.FORMATS = {
-            logging.DEBUG: self.grey + self.fmt + self.reset,
-            logging.INFO: self.blue + self.fmt + self.reset,
-            logging.WARNING: self.yellow + self.fmt + self.reset,
-            logging.ERROR: self.red + self.fmt + self.reset,
-            logging.CRITICAL: self.red + self.fmt + self.reset
-        }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        formatter.datefmt = self.datefmt
-        return formatter.format(record)
