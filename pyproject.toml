@@ -1,14 +1,14 @@
 [project]
-name = "import-media-ios"
-version = "0.1"
+name = "archivuelo"
+version = "0.2"
 dependencies = [
     "click",
     "peewee",
     "pymobiledevice3",
-    "rich",
+    "tqdm",
     "xxhash",
 ]
 requires-python = ">=3.12"
 
 [project.scripts]
-import-media-ios = "import_media_ios.cli:cli"
+archivuelo = "archivuelo.cli:archivuelo"

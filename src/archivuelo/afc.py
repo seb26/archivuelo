@@ -1,12 +1,17 @@
-from pymobiledevice3.services.afc import MAXIMUM_READ_SIZE, AfcService
-from typing import Callable, Optional
+from pymobiledevice3.services.afc import AfcService as pymobiledevice3_AfcService
+from pymobiledevice3.services.afc import MAXIMUM_READ_SIZE
 from re import Pattern
+from typing import Callable, Optional
+import logging
+import os
 import pathlib
 import posixpath
 import xxhash
-import os
 
-class AfcService(AfcService):
+logger = logging.getLogger(__name__)
+
+
+class AfcService(pymobiledevice3_AfcService):
     def __init__(self, *args, **kwargs):
         """Reclassed version of pymobiledevice3.services.afc, to permit derived functions"""
         super(AfcService, self).__init__(*args, **kwargs)
@@ -45,7 +50,7 @@ class AfcService(AfcService):
                         self.fclose(handle)
                 os.utime(dst, (os.stat(dst).st_atime, self.stat(src)['st_mtime'].timestamp()))
                 if callback is not None:
-                    callback(src, dst, hash.hexdigest())
+                    callback(src, dst, { 'type': 'xxh3_64', 'value': hash.hexdigest() })
             else:
                 # directory
                 dst_path = pathlib.Path(dst) / os.path.basename(relative_src)

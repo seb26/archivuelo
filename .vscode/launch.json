@@ -15,24 +15,27 @@
             "name": "Python Debugger: Scan",
             "type": "debugpy",
             "request": "launch",
-            "module": "import_media_ios.cli",
+            "module": "archivuelo",
             "args": [
+                "--verbose",
                 "scan",
+                // "--clear-db",
             ]
         },
         {
             "name": "Python Debugger: Import",
             "type": "debugpy",
             "request": "launch",
-            "module": "import_media_ios.cli",
+            "module": "archivuelo",
             "args": [
-                // "-v",
+                // "--verbose",
                 "import",
-                "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp",
+                "C:\\Users\\sebre\\Development\\_temp\\import_media_tmp_2",
+                "--use-cache",
                 "--exclude-before",
                 "2024-10-15",
                 "--exclude-after",
-                "2024-10-16",
+                "2024-10-20",
                 "--overwrite",
                 "--force-all",
             ]
