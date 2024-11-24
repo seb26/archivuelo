@@ -1,6 +1,6 @@
 from .cache import Cache, TrackedMediaFile
 from .device import Device
-from .filters import FileFilterTimeAfter, FileFilterTimeBefore
+from .filters import FileFilter, FileFilterTimeAfter, FileFilterTimeBefore
 from .importer import Importer
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
 from datetime import datetime
@@ -11,6 +11,11 @@ import logging
 
 logger = logging.getLogger('archivuelo')
 
+
+MAP_CLI_PARAMETERS_TO_FILTERS = {
+    'exclude_after': FileFilterTimeAfter,
+    'exclude_before': FileFilterTimeBefore,
+}
 
 class CustomFormatter(logging.Formatter):
     """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
@@ -50,19 +55,6 @@ def get_device(ctx: click.Context) -> Device:
     except PyMobileDevice3Exception:
         logger.critical('Quitting. Unable to connect to device. Ensure connection then retry. Run with --verbose to see traceback.')
         ctx.exit(2)
-
-
-def user_input_date(input: str) -> datetime:
-    for format in [
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-    ]:
-        try:
-            return datetime.strptime(input, format)
-        except ValueError:
-            continue
-    raise ValueError(f"Could not parse '{input}' into a date & time object.")
 
 
 @click.group()
@@ -122,19 +114,16 @@ def scan( ctx, clear_db, reset_import_status, **options):
 def import_(ctx, target_dir, **options):
     # Pre-parse dates into datetime objects
     options['exclude_filters'] = []
-    for option in [ 'exclude_before', 'exclude_after' ]:
-        if options.get(option):
+    for cli_option, filter_class in MAP_CLI_PARAMETERS_TO_FILTERS.items():
+        # If defined by user
+        if options.get(cli_option):
             try:
-                date = user_input_date(options[option])
+                filter = filter_class(TrackedMediaFile.time_birthtime, options[cli_option])
             except ValueError:
-                logger.error(f'Invalid format for option --{option}: \"{options[option]}\". Check and retry. Aborting.')
+                logger.error(f'Invalid format for option --{cli_option}: \"{options[cli_option]}\". Check and retry. Aborting.')
                 ctx.exit(1)
-            if option == 'exclude_after':
-                filter = FileFilterTimeAfter(TrackedMediaFile.time_birthtime, date)
-            elif option == 'exclude_before':
-                filter = FileFilterTimeBefore(TrackedMediaFile.time_birthtime, date)
             options['exclude_filters'].append(filter)
-            options.pop(option)
+            options.pop(cli_option)
     # Establish
     device = get_device(ctx)
     importer = Importer()

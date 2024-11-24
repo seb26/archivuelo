@@ -54,22 +54,37 @@ class FileFilterTime(FileFilter):
         if not isinstance(time_attr, TimestampField):
             raise ValueError(f"Attribute for this filter needs to be type TimestampField, was: {type(time_attr)}")
     
-    def process_time(self, val: Union[datetime, float]):
+    def process_time(self, val: Union[datetime, float, str]):
         """
-        Ensure datetime object, or parse from timestamp
+        Ensure datetime object, create from timestamp, or parse from string
         """
         if not isinstance(val, datetime):
-            try:
-                return datetime.fromtimestamp(val)
-            except ValueError:
-                raise ValueError(f"The value {val} is neither a timestamp nor datetime object")
+            if isinstance(val, str):
+                for format in [
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%d %H:%M",
+                    "%Y-%m-%d",
+                ]:
+                    try:
+                        return datetime.strptime(val, format)
+                    except ValueError:
+                        continue
+                raise ValueError(f"Could not parse '{val}' into a datetime object.")
+            elif isinstance(val, float):
+                try:
+                    return datetime.fromtimestamp(val)
+                except ValueError:
+                    raise ValueError(f"Could not parse {val} as a timestamp into a datetime object.")
+            else:
+                raise ValueError(f"Could not parse {val} into a datetime object: type {type(val)}")
         else:
             return val
 
 
 class FileFilterTimeAfter(FileFilterTime):
     def __init__(self, time_attr: TimestampField, compare_value: datetime):
-        super().__init__(time_attr, compare_value)
+        self.time_attr = time_attr
+        self.compare_value = compare_value
         self.conditions = [
             (
                 time_attr.column_name,
@@ -80,7 +95,8 @@ class FileFilterTimeAfter(FileFilterTime):
 
 class FileFilterTimeBefore(FileFilterTime):
     def __init__(self, time_attr: TimestampField, compare_value: datetime):
-        super().__init__(time_attr, compare_value)
+        self.time_attr = time_attr
+        self.compare_value = compare_value
         self.conditions = [
             (
                 time_attr.column_name,
@@ -88,18 +104,3 @@ class FileFilterTimeBefore(FileFilterTime):
                 lambda media_file: self.process_time(self.get_media_file_value(media_file, time_attr)) >= self.process_time(compare_value),
             ),
         ]
-    
-
-class MediaFileFake(object):
-    time_birthtime = datetime.now().timestamp()
-
-
-"""exclude_before = FileFilterTimeBefore(TrackedMediaFile.time_birthtime, datetime(2024,12,1))
-
-media_file = MediaFileFake()
-
-filter_callable = exclude_before.get_filter(media_file)
-
-print(filter_callable())
-
-print()"""
