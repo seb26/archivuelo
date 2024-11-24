@@ -1,5 +1,6 @@
-from .cache import Cache
+from .cache import Cache, TrackedMediaFile
 from .device import Device
+from .filters import FileFilterTimeAfter, FileFilterTimeBefore
 from .importer import Importer
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
 from datetime import datetime
@@ -120,14 +121,20 @@ def scan( ctx, clear_db, reset_import_status, **options):
 @click.option('--use-cache', is_flag=True, help="Don't scan the device and perform import only using already tracked items")
 def import_(ctx, target_dir, **options):
     # Pre-parse dates into datetime objects
+    options['exclude_filters'] = []
     for option in [ 'exclude_before', 'exclude_after' ]:
         if options.get(option):
             try:
-                options[option] = user_input_date(options[option])
-                continue
+                date = user_input_date(options[option])
             except ValueError:
                 logger.error(f'Invalid format for option --{option}: \"{options[option]}\". Check and retry. Aborting.')
                 ctx.exit(1)
+            if option == 'exclude_after':
+                filter = FileFilterTimeAfter(TrackedMediaFile.time_birthtime, date)
+            elif option == 'exclude_before':
+                filter = FileFilterTimeBefore(TrackedMediaFile.time_birthtime, date)
+            options['exclude_filters'].append(filter)
+            options.pop(option)
     # Establish
     device = get_device(ctx)
     importer = Importer()

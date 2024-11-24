@@ -1,9 +1,11 @@
 from .cache import Cache
 from .device import Device
+from .filters import FileFilter
 from .services import CopyService, VerifyService
 from .utils import ProgressBar
 from datetime import datetime
 from functools import partial
+from typing import List
 from tqdm.asyncio import tqdm
 import asyncio
 import logging
@@ -61,7 +63,7 @@ class Importer:
         device: Device,
         target_directory: str,
         use_cache: bool=False,
-        exclude_before: datetime=None,
+        exclude_filters: List[FileFilter]=[],
         exclude_after: datetime=None,
         overwrite: bool=False,
         force_all: bool=False,
@@ -75,15 +77,16 @@ class Importer:
             files = partial(self.scan, device)
         with tqdm(desc="Will import", unit=" file") as progress:
             for media_file in files():
-                # Filters
-                if exclude_before:
-                    if media_file.time_birthtime <= exclude_before:
-                        # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
-                        continue
-                if exclude_after:
-                    if media_file.time_birthtime >= exclude_after:
-                        # logger.debug(f"Skipping based on filter: {media_file.filepath_src}")
-                        continue
+                # Test all provided filters
+                filter_was_triggered = False
+                for exclude_filter in exclude_filters:
+                    filter_result = exclude_filter.test_filter(media_file)
+                    if filter_result.result is False:
+                        filter_was_triggered = True
+                        logger.debug(f"Matches exclude filter [{exclude_filter}: {exclude_filter.compare_value}] | File: {media_file.filepath_src} | {filter_result.get_test_results_as_str()}")
+                        break
+                if filter_was_triggered:
+                    continue
                 # Add to the copy queue
                 await self.copy_service.queue.put( (device, media_file, target_directory) )
                 logger.debug("Added to copy queue")
