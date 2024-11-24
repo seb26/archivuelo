@@ -16,9 +16,27 @@ if __name__ != '__main__':
         },
     )
 
+
 class BaseModel(pw.Model):
     class Meta:
         database = db
+
+
+class TrackedMediaFile(BaseModel):
+    id = pw.AutoField(primary_key=True)
+    filename = pw.TextField()
+    filepath_dst = pw.TextField(null=True, default=None)
+    filepath_src = pw.TextField()
+    hash_type = pw.TextField(null=True, default=None)
+    hash_value = pw.FixedCharField(null=True)
+    size = pw.IntegerField()
+    status_imported = pw.BooleanField(default=False, null=True)
+    status_verified = pw.BooleanField(default=False, null=True)
+    time_birthtime = pw.TimestampField(default=None, null=True)
+    time_imported = pw.TimestampField(default=None, null=True)
+    time_mtime = pw.TimestampField(default=None, null=True)
+    time_verified = pw.TimestampField(default=None, null=True)
+
 
 class Cache:
     def __init__(self):
@@ -49,7 +67,7 @@ class Cache:
         """Look up file from ID"""
         pass
 
-    def get_file_from_filepath(self, filepath):
+    def get_file_from_filepath(self, filepath) -> TrackedMediaFile:
         """Look up file in cache from a device filepath"""
         return ( TrackedMediaFile
             .select(TrackedMediaFile)
@@ -68,23 +86,10 @@ class Cache:
         return self.db.drop_tables(TrackedMediaFile)
     
     def add(self, **params):
-        return TrackedMediaFile.create(**params)
-    
-    
-class TrackedMediaFile(BaseModel):
-    id = pw.AutoField(primary_key=True)
-    filename = pw.TextField()
-    filepath_dst = pw.TextField(null=True, default=None)
-    filepath_src = pw.TextField()
-    hash_type = pw.TextField(null=True, default=None)
-    hash_value = pw.FixedCharField(null=True)
-    size = pw.IntegerField()
-    status_imported = pw.BooleanField(default=False, null=True)
-    status_verified = pw.BooleanField(default=False, null=True)
-    time_birthtime = pw.TimestampField(default=None, null=True)
-    time_imported = pw.TimestampField(default=None, null=True)
-    time_mtime = pw.TimestampField(default=None, null=True)
-    time_verified = pw.TimestampField(default=None, null=True)
+        media_file = TrackedMediaFile(**params)
+        media_file.save()
+        return media_file
+
 
 tables = (
     TrackedMediaFile,
