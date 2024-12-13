@@ -1,9 +1,9 @@
 from .cache import Cache, TrackedMediaFile
 from .device import Device
-from .filters import FileFilter, FileFilterTimeAfter, FileFilterTimeBefore
+from .filters import FileFilterTimeAfter, FileFilterTimeBefore
 from .importer import Importer
+from importlib.metadata import version
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
-from datetime import datetime
 from tqdm.asyncio import tqdm
 import asyncio
 import click
@@ -76,6 +76,7 @@ def archivuelo(verbose: bool):
     handler_stdout.setLevel(user_level)
     handler_stdout.setFormatter(CustomFormatter(fmt=fmt))
     logger.addHandler(handler_stdout)
+    logger.info(f"archivuelo {version('archivuelo')}")
     
 @archivuelo.command()
 @click.pass_context
