@@ -54,7 +54,7 @@ class CopyService:
 
         filepath_parent = Path(media_file.filepath_src).parent
         dirpath_dst = Path(target_directory) / filepath_parent
-        # Ensure exists
+        # Ensure location exists
         dirpath_dst.mkdir(parents=True, exist_ok=True)
         result = device.pull_file(
             media_file.filepath_src,
